@@ -13,18 +13,14 @@ class PropertiesSerializer(serializers.Serializer):
 
 class StoredStringSerializer(serializers.ModelSerializer):
     properties = PropertiesSerializer()
-
-
-class Meta:
-    model = StoredString
-    fields = ['id', 'value', 'properties', 'created_at']
+    class Meta:
+        model = StoredString
+        fields = ['id', 'value', 'properties', 'created_at']
 
 
 class CreateStringSerializer(serializers.Serializer):
     value = serializers.CharField()
-
-
-def validate_value(self, v):
-    if not isinstance(v, str):
+    def validate_value(self, v):
+        if not isinstance(v, str):
         raise serializers.ValidationError('value must be a string')
     return v
