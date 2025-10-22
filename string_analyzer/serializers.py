@@ -12,7 +12,7 @@ class PropertiesSerializer(serializers.Serializer):
 
 
 class StoredStringSerializer(serializers.ModelSerializer):
-    properties = PropertiesSerializer()
+    properties = serializers.JSONField()
     class Meta:
         model = StoredString
         fields = ['id', 'value', 'properties', 'created_at']
