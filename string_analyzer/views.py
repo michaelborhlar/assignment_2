@@ -142,14 +142,13 @@ class NaturalLanguageFilterView(APIView):
         serializer = StoredStringSerializer(queryset, many=True)
         return Response(serializer.data, status=200)
 
-                
+
 class DeleteStringView(APIView):
     def delete(self, request, string_value):
-        from .utils import analyze_string
-        sha_hash = analyze_string(string_value)["sha256_hash"]
-
         try:
-            StoredString.objects.get(id=sha_hash).delete()
+            stored = StoredString.objects.get(value=string_value)
+            stored.delete()
             return Response(status=204)
         except StoredString.DoesNotExist:
             return Response({"error": "String not found"}, status=404)
+              
