@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     CreateStringView,
     GetStringView,
-    GetAllStringsView,
+    ListStringView,
     DeleteStringView,
     NaturalLanguageFilterView,
 )
@@ -12,7 +12,7 @@ urlpatterns = [
     path('strings', CreateStringView.as_view(), name='create-string'),
     
     # GET /strings
-    path('strings/', GetAllStringsView.as_view(), name='get-all-strings'),
+    path('strings/', ListStringView.as_view(), name='get-all-strings'),
     
     # GET /strings/<string_value>
     path('strings/<str:string_value>', GetStringView.as_view(), name='get-string'),
