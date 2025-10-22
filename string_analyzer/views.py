@@ -93,25 +93,51 @@ class DeleteStringView(APIView):
 
 
 # GET /strings/filter-by-natural-language?query=...
+
 class NaturalLanguageFilterView(APIView):
     def get(self, request):
-        query = request.query_params.get("query", "").lower()
-        queryset = StoredString.objects.all()
+        query = request.GET.get("query", "").lower().strip()
+        parsed_filters = {}
 
-        # Detect keywords
-        if "palindrome" in query:
-            queryset = queryset.filter(properties__is_palindrome=True)
+        if not query:
+            return Response({"error": "Missing 'query' parameter"}, status=status.HTTP_400_BAD_REQUEST)
 
-        longer_match = re.search(r"longer than (\d+)", query)
-        shorter_match = re.search(r"shorter than (\d+)", query)
-        contains_match = re.search(r"contain(?:s|ing)? (\w+)", query)
+        # Parse natural phrases
+        if "palindromic" in query:
+            parsed_filters["is_palindrome"] = True
+        if "single word" in query or "one word" in query:
+            parsed_filters["word_count"] = 1
+        if "longer than" in query:
+            try:
+                num = int(''.join(filter(str.isdigit, query.split("longer than")[1])))
+                parsed_filters["min_length"] = num + 1
+            except Exception:
+                pass
+        if "contain" in query or "containing" in query:
+            for word in query.split():
+                if len(word) == 1 and word.isalpha():
+                    parsed_filters["contains_character"] = word
+                    break
 
-        if longer_match:
-            queryset = queryset.filter(properties__length__gt=int(longer_match.group(1)))
-        if shorter_match:
-            queryset = queryset.filter(properties__length__lt=int(shorter_match.group(1)))
-        if contains_match:
-            queryset = queryset.filter(value__icontains=contains_match.group(1))
+        if not parsed_filters:
+            return Response({"error": "Unable to parse natural language query"}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = StoredStringSerializer(queryset, many=True)
-        return Response(serializer.data, status=200)
+        queryset = StringRecord.objects.all()
+        if parsed_filters.get("is_palindrome"):
+            queryset = queryset.filter(is_palindrome=True)
+        if parsed_filters.get("word_count"):
+            queryset = queryset.filter(word_count=parsed_filters["word_count"])
+        if parsed_filters.get("min_length"):
+            queryset = queryset.filter(length__gte=parsed_filters["min_length"])
+        if parsed_filters.get("contains_character"):
+            queryset = queryset.filter(value__icontains=parsed_filters["contains_character"])
+
+        serializer = StringRecordSerializer(queryset, many=True)
+        return Response({
+            "data": serializer.data,
+            "count": queryset.count(),
+            "interpreted_query": {
+                "original": query,
+                "parsed_filters": parsed_filters
+            }
+        }, status=status.HTTP_200_OK)
