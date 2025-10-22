@@ -22,5 +22,5 @@ class CreateStringSerializer(serializers.Serializer):
     value = serializers.CharField()
     def validate_value(self, v):
         if not isinstance(v, str):
-        raise serializers.ValidationError('value must be a string')
-    return v
+            raise serializers.ValidationError('value must be a string')
+        return v
