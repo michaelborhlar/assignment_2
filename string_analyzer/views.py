@@ -89,7 +89,63 @@ class GetAllStringsView(APIView):
             "filters_applied": filters_applied
         }, status=200)
 
+class NaturalLanguageFilterView(APIView):
+    """
+    Basic version of Natural Language Filter endpoint.
+    Supports a few simple keyword-based queries.
+    """
 
+    def get(self, request):
+        query = request.query_params.get("query", "")
+        if not query:
+            return Response(
+                {"error": "Missing 'query' parameter."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        query = query.lower()
+        filters = {}
+
+        # Simple keyword detection
+        if "palindrome" in query:
+            filters["is_palindrome"] = True
+        if "single word" in query:
+            filters["word_count"] = 1
+        if "longer than" in query:
+            # extract number from text e.g. "longer than 10 characters"
+            import re
+            match = re.search(r"longer than (\d+)", query)
+            if match:
+                filters["min_length"] = int(match.group(1)) + 1
+        if "containing the letter" in query:
+            import re
+            match = re.search(r"containing the letter (\w)", query)
+            if match:
+                filters["contains_character"] = match.group(1)
+
+        # Apply filters to queryset
+        qs = AnalyzedString.objects.all()
+
+        if "is_palindrome" in filters:
+            qs = qs.filter(is_palindrome=filters["is_palindrome"])
+        if "word_count" in filters:
+            qs = qs.filter(word_count=filters["word_count"])
+        if "min_length" in filters:
+            qs = qs.filter(length__gte=filters["min_length"])
+        if "contains_character" in filters:
+            qs = qs.filter(value__icontains=filters["contains_character"])
+
+        serializer = AnalyzedStringSerializer(qs, many=True)
+
+        return Response({
+            "data": serializer.data,
+            "count": qs.count(),
+            "interpreted_query": {
+                "original": query,
+                "parsed_filters": filters
+            }
+        }, status=status.HTTP_200_OK)
+                
 class DeleteStringView(APIView):
     def delete(self, request, string_value):
         from .utils import analyze_string
