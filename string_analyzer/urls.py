@@ -1,16 +1,25 @@
 from django.urls import path
 from .views import (
     CreateStringView,
-    ListStringView,
     GetStringView,
+    GetAllStringsView,
     DeleteStringView,
-    NaturalLanguageFilterView
+    NaturalLanguageFilterView,
 )
 
 urlpatterns = [
-    path('strings', CreateStringView.as_view()),          # POST
-    path('strings', ListStringView.as_view()),            # GET (filters)
-    path('strings/<str:string_value>', GetStringView.as_view()),   # GET specific
-    path('strings/<str:string_value>', DeleteStringView.as_view()), # DELETE
-    path('strings/filter-by-natural-language', NaturalLanguageFilterView.as_view()),
+    # POST /strings
+    path('strings', CreateStringView.as_view(), name='create-string'),
+    
+    # GET /strings
+    path('strings/', GetAllStringsView.as_view(), name='get-all-strings'),
+    
+    # GET /strings/<string_value>
+    path('strings/<str:string_value>', GetStringView.as_view(), name='get-string'),
+    
+    # DELETE /strings/<string_value>
+    path('strings/<str:string_value>/delete', DeleteStringView.as_view(), name='delete-string'),
+    
+    # GET /strings/filter-by-natural-language
+    path('strings/filter-by-natural-language', NaturalLanguageFilterView.as_view(), name='filter-natural'),
 ]
