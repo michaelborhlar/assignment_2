@@ -4,6 +4,7 @@ from .views import (
     GetStringView,
     GetAllStringsView,
     DeleteStringView,
+    NaturalLanguageFilterView,
 )
 
 urlpatterns = [
