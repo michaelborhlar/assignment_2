@@ -81,16 +81,14 @@ class GetStringView(APIView):
 # DELETE /strings/{string_value}
 class DeleteStringView(APIView):
     def delete(self, request, string_value):
-        analyzed = analyze_string(string_value)
-        sha_hash = analyzed["sha256_hash"]
-
         try:
-            stored = StoredString.objects.get(id=sha_hash)
-            stored.delete()
-            return Response(status=204)
-        except StoredString.DoesNotExist:
-            return Response({"error": "String not found"}, status=404)
+            record = StringRecord.objects.get(value=string_value)
+        except StringRecord.DoesNotExist:
+            return Response({"error": "String not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        record.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+        
 
 # GET /strings/filter-by-natural-language?query=...
 
