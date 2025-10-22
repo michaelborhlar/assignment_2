@@ -2,14 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
-from django.db.models import Q
 from .models import StoredString
 from .serializers import StoredStringSerializer
 from .utils import analyze_string
 import re
 
 
-
+# POST /strings
 class CreateStringView(APIView):
     def post(self, request):
         value = request.data.get("value")
@@ -23,7 +22,7 @@ class CreateStringView(APIView):
         analyzed = analyze_string(value)
         sha_hash = analyzed["sha256_hash"]
 
-        # Check if it already exists
+        # Avoid duplicates
         if StoredString.objects.filter(id=sha_hash).exists():
             return Response({"error": "String already exists"}, status=409)
 
@@ -37,6 +36,7 @@ class CreateStringView(APIView):
         return Response(serializer.data, status=201)
 
 
+# GET /strings (with filters)
 class ListStringView(APIView):
     def get(self, request):
         queryset = StoredString.objects.all()
@@ -47,7 +47,6 @@ class ListStringView(APIView):
         max_length = params.get("max_length")
         contains = params.get("contains")
 
-        # Apply filters if provided
         if is_palindrome is not None:
             queryset = queryset.filter(properties__is_palindrome=(is_palindrome.lower() == "true"))
 
@@ -63,10 +62,12 @@ class ListStringView(APIView):
         serializer = StoredStringSerializer(queryset, many=True)
         return Response(serializer.data, status=200)
 
+
+# GET /strings/{string_value}
 class GetStringView(APIView):
     def get(self, request, string_value):
-        from .utils import analyze_string
-        sha_hash = analyze_string(string_value)["sha256_hash"]
+        analyzed = analyze_string(string_value)
+        sha_hash = analyzed["sha256_hash"]
 
         try:
             stored = StoredString.objects.get(id=sha_hash)
@@ -77,48 +78,21 @@ class GetStringView(APIView):
         return Response(serializer.data, status=200)
 
 
-class GetAllStringsView(APIView):
-    def get(self, request):
-        strings = StoredString.objects.all()
+# DELETE /strings/{string_value}
+class DeleteStringView(APIView):
+    def delete(self, request, string_value):
+        analyzed = analyze_string(string_value)
+        sha_hash = analyzed["sha256_hash"]
 
-        # Filters
-        is_palindrome = request.GET.get("is_palindrome")
-        min_length = request.GET.get("min_length")
-        max_length = request.GET.get("max_length")
-        word_count = request.GET.get("word_count")
-        contains_character = request.GET.get("contains_character")
-
-        filters_applied = {}
-
-        if is_palindrome is not None:
-            val = is_palindrome.lower() == 'true'
-            strings = [s for s in strings if s.properties.get('is_palindrome') == val]
-            filters_applied["is_palindrome"] = val
-
-        if min_length:
-            strings = [s for s in strings if s.properties.get('length', 0) >= int(min_length)]
-            filters_applied["min_length"] = int(min_length)
-
-        if max_length:
-            strings = [s for s in strings if s.properties.get('length', 0) <= int(max_length)]
-            filters_applied["max_length"] = int(max_length)
-
-        if word_count:
-            strings = [s for s in strings if s.properties.get('word_count', 0) == int(word_count)]
-            filters_applied["word_count"] = int(word_count)
-
-        if contains_character:
-            strings = [s for s in strings if contains_character in s.value]
-            filters_applied["contains_character"] = contains_character
-
-        serializer = StoredStringSerializer(strings, many=True)
-        return Response({
-            "data": serializer.data,
-            "count": len(serializer.data),
-            "filters_applied": filters_applied
-        }, status=200)
+        try:
+            stored = StoredString.objects.get(id=sha_hash)
+            stored.delete()
+            return Response(status=204)
+        except StoredString.DoesNotExist:
+            return Response({"error": "String not found"}, status=404)
 
 
+# GET /strings/filter-by-natural-language?query=...
 class NaturalLanguageFilterView(APIView):
     def get(self, request):
         query = request.query_params.get("query", "").lower()
@@ -130,7 +104,7 @@ class NaturalLanguageFilterView(APIView):
 
         longer_match = re.search(r"longer than (\d+)", query)
         shorter_match = re.search(r"shorter than (\d+)", query)
-        contains_match = re.search(r"containing (\w+)", query)
+        contains_match = re.search(r"contain(?:s|ing)? (\w+)", query)
 
         if longer_match:
             queryset = queryset.filter(properties__length__gt=int(longer_match.group(1)))
@@ -141,14 +115,3 @@ class NaturalLanguageFilterView(APIView):
 
         serializer = StoredStringSerializer(queryset, many=True)
         return Response(serializer.data, status=200)
-
-
-class DeleteStringView(APIView):
-    def delete(self, request, string_value):
-        try:
-            stored = StoredString.objects.get(value=string_value)
-            stored.delete()
-            return Response(status=204)
-        except StoredString.DoesNotExist:
-            return Response({"error": "String not found"}, status=404)
-              
